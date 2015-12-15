@@ -8,8 +8,10 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 
 import org.apache.camel.CamelContext;
+import org.apache.camel.ProducerTemplate;
 import org.apache.camel.component.quartz2.QuartzComponent;
 import org.apache.camel.impl.DefaultCamelContext;
+import org.apache.camel.impl.DefaultProducerTemplate;
 import org.apache.camel.impl.JavaUuidGenerator;
 import org.apache.camel.main.Main;
 import org.slf4j.Logger;
@@ -26,6 +28,8 @@ public class CamelQuartzTrial {
 	private ServerSocket serverSocket;
 
 	private Main main;
+	
+	private ProducerTemplate template;
 
 	/**
 	 * Method to be called Singleton or HASignleton
@@ -117,27 +121,49 @@ public class CamelQuartzTrial {
 		camelContext = new DefaultCamelContext();
 		// camelContext = new DefaultCamelContext(context);
 
-		QuartzComponent quartzComponent = new QuartzComponent();
+		//QuartzComponent quartzComponent = new QuartzComponent();
 
 		// TODO
 
-		camelContext.addComponent("quartz2", quartzComponent);
+		//camelContext.addComponent("quartz2", quartzComponent);
+		
 		camelContext.setUuidGenerator(new JavaUuidGenerator());
 		logger.info("Adding routes for scheduler APIs ");
-		camelContext.addRoutes(new SchedulerRoutes());
+		//camelContext.addRoutes(new SchedulerRoutes());
+		camelContext.addRoutes(new TestRoute());
 		main.getCamelContexts().add(camelContext);
+		template = new DefaultProducerTemplate(camelContext);
+		template.start();
 	}
 
-	/*
-	 * public ProducerTemplate getProducerTemplate() { return
-	 * camelContext.createProducerTemplate(); }
-	 */
+	
+	 public ProducerTemplate getProducerTemplate() { 
+		 return camelContext.createProducerTemplate(); 
+	 }
+	 
 
 	public static void main(String[] args) throws Exception {
 		try {
-			CamelQuartzTrial scheduler = new CamelQuartzTrial();
-			scheduler.startScheduler();
+			final CamelQuartzTrial scheduler = new CamelQuartzTrial();
+			Thread t = new Thread(new Runnable() {
+				
+				public void run() {
+					try {
+						scheduler.startScheduler();
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			});
+			//scheduler.startScheduler();
+			t.start();
 
+			Thread.sleep(3000);
+			ProducerTemplate template = scheduler.getProducerTemplate();
+			template.start();			
+			logger.info("Sending msg to endpoint ");
+			template.requestBody("direct:test", "Hello");
 		} catch (Exception e) {
 			logger.error("Exception while starting scheduler ", e);
 			throw e;
